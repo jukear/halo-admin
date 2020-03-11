@@ -11,15 +11,17 @@
         </div>
 
         <div id="editor">
-          <halo-editor
-            ref="md"
-            v-model="postToStage.originalContent"
-            :boxShadow="false"
-            :toolbars="toolbars"
-            :ishljs="true"
-            :autofocus="false"
-            @imgAdd="handleAttachmentUpload"
-            @save="handleSaveDraft(true)"
+          <MarkdownEditor
+            v-if="postToStage.editorType=='MARKDOWN'"
+            :originalContent="postToStage.originalContent"
+            @onSaveDraft="handleSaveDraft(true)"
+            @onContentChange="onContentChange"
+          />
+
+          <RichTextEditor
+            v-else
+            :originalContent="postToStage.originalContent"
+            @onContentChange="onContentChange"
           />
         </div>
       </a-col>
@@ -29,7 +31,7 @@
       :post="postToStage"
       :tagIds="selectedTagIds"
       :categoryIds="selectedCategoryIds"
-      :postMetas="selectedPostMetas"
+      :metas="selectedMetas"
       :visible="postSettingVisible"
       @close="onPostSettingsClose"
       @onRefreshPost="onRefreshPostFromSetting"
@@ -73,29 +75,27 @@ import moment from 'moment'
 import PostSettingDrawer from './components/PostSettingDrawer'
 import AttachmentDrawer from '../attachment/components/AttachmentDrawer'
 import FooterToolBar from '@/components/FooterToolbar'
-import { toolbars } from '@/core/const'
-import { haloEditor } from 'halo-editor'
-import 'halo-editor/dist/css/index.css'
+import MarkdownEditor from '@/components/editor/MarkdownEditor'
+import RichTextEditor from '@/components/editor/RichTextEditor'
 
 import postApi from '@/api/post'
-import attachmentApi from '@/api/attachment'
 export default {
   mixins: [mixin, mixinDevice],
   components: {
     PostSettingDrawer,
-    haloEditor,
     FooterToolBar,
-    AttachmentDrawer
+    AttachmentDrawer,
+    MarkdownEditor,
+    RichTextEditor
   },
   data() {
     return {
-      toolbars,
       attachmentDrawerVisible: false,
       postSettingVisible: false,
       postToStage: {},
       selectedTagIds: [],
       selectedCategoryIds: [],
-      selectedPostMetas: [],
+      selectedMetas: [],
       isSaved: false,
       contentChanges: 0,
       saving: false
@@ -111,7 +111,7 @@ export default {
           vm.postToStage = post
           vm.selectedTagIds = post.tagIds
           vm.selectedCategoryIds = post.categoryIds
-          vm.selectedPostMetas = post.postMetas
+          vm.selectedMetas = post.metas
         })
       }
     })
@@ -160,6 +160,9 @@ export default {
       }
       return '当前页面数据未保存，确定要离开吗？'
     }
+    if (!this.postToStage.editorType) {
+      this.postToStage.editorType = this.options.default_editor
+    }
   },
   watch: {
     temporaryContent: function(newValue, oldValue) {
@@ -185,41 +188,39 @@ export default {
       if (this.postToStage.id) {
         // Update the post
         if (draftOnly) {
-          postApi.updateDraft(this.postToStage.id, this.postToStage.originalContent).then(response => {
-            this.$message.success('保存草稿成功！')
-            this.saving = false
-          })
+          postApi
+            .updateDraft(this.postToStage.id, this.postToStage.originalContent)
+            .then(response => {
+              this.$message.success('保存草稿成功！')
+            })
+            .finally(() => {
+              this.saving = false
+            })
         } else {
-          postApi.update(this.postToStage.id, this.postToStage, false).then(response => {
-            this.$log.debug('Updated post', response.data.data)
-            this.$message.success('保存草稿成功！')
-            this.saving = false
-          })
+          postApi
+            .update(this.postToStage.id, this.postToStage, false)
+            .then(response => {
+              this.$log.debug('Updated post', response.data.data)
+              this.$message.success('保存草稿成功！')
+              this.postToStage = response.data.data
+            })
+            .finally(() => {
+              this.saving = false
+            })
         }
       } else {
         // Create the post
-        postApi.create(this.postToStage, false).then(response => {
-          this.$log.debug('Created post', response.data.data)
-          this.$message.success('保存草稿成功！')
-          this.postToStage = response.data.data
-          this.saving = false
-        })
+        postApi
+          .create(this.postToStage, false)
+          .then(response => {
+            this.$log.debug('Created post', response.data.data)
+            this.$message.success('保存草稿成功！')
+            this.postToStage = response.data.data
+          })
+          .finally(() => {
+            this.saving = false
+          })
       }
-    },
-    handleAttachmentUpload(pos, $file) {
-      var formdata = new FormData()
-      formdata.append('file', $file)
-      attachmentApi.upload(formdata).then(response => {
-        var responseObject = response.data
-
-        if (responseObject.status === 200) {
-          var HaloEditor = this.$refs.md
-          HaloEditor.$img2Url(pos, encodeURI(responseObject.data.path))
-          this.$message.success('图片上传成功！')
-        } else {
-          this.$message.error('图片上传失败：' + responseObject.message)
-        }
-      })
     },
     handleShowPostSetting() {
       this.postSettingVisible = true
@@ -234,22 +235,33 @@ export default {
         // Update the post
         postApi.update(this.postToStage.id, this.postToStage, false).then(response => {
           this.$log.debug('Updated post', response.data.data)
-          postApi.preview(this.postToStage.id).then(response => {
-            window.open(response.data, '_blank')
-            this.saving = false
-          })
+          postApi
+            .preview(this.postToStage.id)
+            .then(response => {
+              window.open(response.data, '_blank')
+            })
+            .finally(() => {
+              this.saving = false
+            })
         })
       } else {
         // Create the post
         postApi.create(this.postToStage, false).then(response => {
           this.$log.debug('Created post', response.data.data)
           this.postToStage = response.data.data
-          postApi.preview(this.postToStage.id).then(response => {
-            window.open(response.data, '_blank')
-            this.saving = false
-          })
+          postApi
+            .preview(this.postToStage.id)
+            .then(response => {
+              window.open(response.data, '_blank')
+            })
+            .finally(() => {
+              this.saving = false
+            })
         })
       }
+    },
+    onContentChange(val) {
+      this.postToStage.originalContent = val
     },
     // 关闭文章设置抽屉
     onPostSettingsClose() {
@@ -264,8 +276,8 @@ export default {
     onRefreshCategoryIdsFromSetting(categoryIds) {
       this.selectedCategoryIds = categoryIds
     },
-    onRefreshPostMetasFromSetting(postMetas) {
-      this.selectedPostMetas = postMetas
+    onRefreshPostMetasFromSetting(metas) {
+      this.selectedMetas = metas
     },
     onSaved(isSaved) {
       this.isSaved = isSaved

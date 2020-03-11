@@ -54,7 +54,7 @@
               <a-list-item>累计创建了 {{ statistics.tagCount || 0 }} 个标签。</a-list-item>
               <a-list-item>累计获得了 {{ statistics.commentCount || 0 }} 条评论。</a-list-item>
               <a-list-item>累计添加了 {{ statistics.linkCount || 0 }} 个友链。</a-list-item>
-              <a-list-item>文章总访问 {{ statistics.visitCount || 0 }} 次。</a-list-item>
+              <a-list-item>文章总阅读 {{ statistics.visitCount || 0 }} 次。</a-list-item>
               <a-list-item></a-list-item>
             </a-list>
           </div>
@@ -88,7 +88,7 @@
                   </a-form-item>
                   <a-form-item label="个人说明：">
                     <a-input
-                      :autosize="{ minRows: 5 }"
+                      :autoSize="{ minRows: 5 }"
                       type="textarea"
                       v-model="user.description"
                     />
@@ -107,13 +107,22 @@
                 </span>
                 <a-form layout="vertical">
                   <a-form-item label="原密码：">
-                    <a-input-password v-model="passwordParam.oldPassword" />
+                    <a-input-password
+                      v-model="passwordParam.oldPassword"
+                      autocomplete="new-password"
+                    />
                   </a-form-item>
                   <a-form-item label="新密码：">
-                    <a-input-password v-model="passwordParam.newPassword" />
+                    <a-input-password
+                      v-model="passwordParam.newPassword"
+                      autocomplete="new-password"
+                    />
                   </a-form-item>
                   <a-form-item label="确认密码：">
-                    <a-input-password v-model="passwordParam.confirmPassword" />
+                    <a-input-password
+                      v-model="passwordParam.confirmPassword"
+                      autocomplete="new-password"
+                    />
                   </a-form-item>
                   <a-form-item>
                     <a-button

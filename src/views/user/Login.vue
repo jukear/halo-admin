@@ -47,6 +47,7 @@
           :style="{'animation-delay': '0.3s'}"
         >
           <a-button
+            :loading="landing"
             type="primary"
             :block="true"
             @click="handleLogin"
@@ -129,6 +130,7 @@
 </template>
 
 <script>
+import adminApi from '@/api/admin'
 import { mapActions, mapGetters, mapMutations } from 'vuex'
 
 export default {
@@ -139,13 +141,15 @@ export default {
       apiModifyVisible: false,
       defaultApiBefore: window.location.protocol + '//',
       apiUrl: window.location.host,
-      resetPasswordButton: false
+      resetPasswordButton: false,
+      landing: false
     }
   },
   computed: {
     ...mapGetters({ defaultApiUrl: 'apiUrl' })
   },
   created() {
+    this.verifyIsInstall()
     const _this = this
     document.addEventListener('keydown', function(e) {
       if (e.keyCode === 72 && e.altKey && e.shiftKey) {
@@ -159,6 +163,13 @@ export default {
       setApiUrl: 'SET_API_URL',
       restoreApiUrl: 'RESTORE_API_URL'
     }),
+    verifyIsInstall() {
+      adminApi.isInstalled().then(response => {
+        if (!response.data.data) {
+          this.$router.push({ name: 'Install' })
+        }
+      })
+    },
     handleLogin() {
       if (!this.username) {
         this.$message.warn('用户名不能为空！')
@@ -169,11 +180,17 @@ export default {
         this.$message.warn('密码不能为空！')
         return
       }
-
-      this.login({ username: this.username, password: this.password }).then(response => {
-        // Go to dashboard
-        this.loginSuccess()
-      })
+      this.landing = true
+      this.login({ username: this.username, password: this.password })
+        .then(response => {
+          // Go to dashboard
+          this.loginSuccess()
+        })
+        .finally(() => {
+          setTimeout(() => {
+            this.landing = false
+          }, 500)
+        })
     },
     loginSuccess() {
       // Cache the user info

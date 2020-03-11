@@ -71,41 +71,22 @@
                     <a-menu-item
                       :key="1"
                       :disabled="item.activated"
+                      @click="handleConfirmDelete(item)"
                     >
-                      <a-popconfirm
-                        v-if="!item.activated"
-                        :title="'确定删除【' + item.name + '】主题？'"
-                        @confirm="handleDeleteTheme(item.id)"
-                        okText="确定"
-                        cancelText="取消"
-                      >
-                        <a-icon
-                          type="delete"
-                          style="margin-right:3px"
-                        />删除
-                      </a-popconfirm>
-                      <span v-else>
-                        <a-icon
-                          type="delete"
-                          style="margin-right:3px"
-                        />删除
-                      </span>
+                      <a-icon
+                        type="delete"
+                        style="margin-right:3px"
+                      />删除
                     </a-menu-item>
                     <a-menu-item
                       :key="2"
                       v-if="item.repo"
+                      @click="handleConfirmUpdate(item)"
                     >
-                      <a-popconfirm
-                        :title="'确定更新【' + item.name + '】主题？'"
-                        @confirm="handleUpdateTheme(item.id)"
-                        okText="确定"
-                        cancelText="取消"
-                      >
-                        <a-icon
-                          type="cloud"
-                          style="margin-right:3px"
-                        />在线更新
-                      </a-popconfirm>
+                      <a-icon
+                        type="cloud"
+                        style="margin-right:3px"
+                      />在线更新
                     </a-menu-item>
                     <a-menu-item
                       :key="3"
@@ -310,8 +291,8 @@ export default {
           hide()
         })
     },
-    handleDeleteTheme(key) {
-      themeApi.delete(key).then(response => {
+    handleDeleteTheme(themeId) {
+      themeApi.delete(themeId).then(response => {
         this.$message.success('删除成功！')
         this.loadThemes()
       })
@@ -364,6 +345,30 @@ export default {
     handleShowThemeSetting(theme) {
       this.selectedTheme = theme
       this.themeSettingVisible = true
+    },
+    handleConfirmDelete(item) {
+      const that = this
+      this.$confirm({
+        title: '提示',
+        maskClosable: true,
+        content: '确定删除【' + item.name + '】主题？',
+        onOk() {
+          that.handleDeleteTheme(item.id)
+        },
+        onCancel() {}
+      })
+    },
+    handleConfirmUpdate(item) {
+      const that = this
+      this.$confirm({
+        title: '提示',
+        maskClosable: true,
+        content: '确定更新【' + item.name + '】主题？',
+        onOk() {
+          that.handleUpdateTheme(item.id)
+        },
+        onCancel() {}
+      })
     },
     onThemeUploadClose() {
       if (this.uploadThemeVisible) {

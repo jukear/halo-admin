@@ -1,7 +1,7 @@
 <template>
   <a-drawer
     title="文章设置"
-    :width="isMobile()?'100%':'460'"
+    :width="isMobile()?'100%':'480'"
     placement="right"
     closable
     destroyOnClose
@@ -24,11 +24,14 @@
               >
                 <a-input v-model="selectedPost.title" />
               </a-form-item>
-              <a-form-item
-                label="文章路径："
-                :help="options.blog_url+'/archives/' + (selectedPost.url ? selectedPost.url : '{auto_generate}')"
-              >
-                <a-input v-model="selectedPost.url" />
+              <a-form-item label="文章别名：">
+                <template slot="help">
+                  <span v-if="options.post_permalink_type === 'DEFAULT'">{{ options.blog_url }}/{{ options.archives_prefix }}/{{ selectedPost.slug?selectedPost.slug:'${slug}' }}{{ options.path_suffix }}</span>
+                  <span v-else-if="options.post_permalink_type === 'DATE'">{{ options.blog_url }}{{ selectedPost.createTime?selectedPost.createTime:new Date() | moment_post_date }}{{ selectedPost.slug?selectedPost.slug:'${slug}' }}{{ options.path_suffix }}</span>
+                  <span v-else-if="options.post_permalink_type === 'DAY'">{{ options.blog_url }}{{ selectedPost.createTime?selectedPost.createTime:new Date() | moment_post_day }}{{ selectedPost.slug?selectedPost.slug:'${slug}' }}{{ options.path_suffix }}</span>
+                  <span v-else-if="options.post_permalink_type === 'ID'">{{ options.blog_url }}/?p={{ selectedPost.id?selectedPost.id:'${id}' }}</span>
+                </template>
+                <a-input v-model="selectedPost.slug" />
               </a-form-item>
               <a-form-item label="访问密码：">
                 <a-input-password
@@ -108,7 +111,7 @@
               <a-form-item v-if="categoryFormVisible">
                 <a-input
                   placeholder="分类路径"
-                  v-model="categoryToCreate.slugNames"
+                  v-model="categoryToCreate.slug"
                 />
               </a-form-item>
               <a-form-item>
@@ -153,9 +156,9 @@
               <a-form-item>
                 <a-input
                   type="textarea"
-                  :autosize="{ minRows: 5 }"
+                  :autoSize="{ minRows: 5 }"
                   v-model="selectedPost.summary"
-                  placeholder="不填写则会自动生成"
+                  placeholder="如不填写，会从文章中自动截取"
                 />
               </a-form-item>
             </a-form>
@@ -164,7 +167,7 @@
         <a-divider />
 
         <div :style="{ marginBottom: '16px' }">
-          <h3 class="post-setting-drawer-title">缩略图</h3>
+          <h3 class="post-setting-drawer-title">封面图</h3>
           <div class="post-setting-drawer-item">
             <div class="post-thumb">
               <img
@@ -177,7 +180,7 @@
                 <a-form-item>
                   <a-input
                     v-model="selectedPost.thumbnail"
-                    placeholder="点击缩略图选择图片，或者输入外部链接"
+                    placeholder="点击封面图选择图片，或者输入外部链接"
                   ></a-input>
                 </a-form-item>
               </a-form>
@@ -190,26 +193,66 @@
             </div>
           </div>
         </div>
+        <a-divider class="divider-transparent" />
+      </div>
+    </a-skeleton>
+    <AttachmentSelectDrawer
+      v-model="thumbDrawerVisible"
+      @listenToSelect="handleSelectPostThumb"
+      :drawerWidth="460"
+    />
+
+    <a-drawer
+      title="高级设置"
+      :width="isMobile()?'100%':'480'"
+      placement="right"
+      closable
+      destroyOnClose
+      @close="onAdvancedClose"
+      :visible="advancedVisible"
+    >
+      <div class="post-setting-drawer-content">
+        <div :style="{ marginBottom: '16px' }">
+          <h3 class="post-setting-drawer-title">SEO 设置</h3>
+          <div class="post-setting-drawer-item">
+            <a-form layout="vertical">
+              <a-form-item label="自定义关键词：">
+                <a-input
+                  v-model="selectedPost.metaKeywords"
+                  placeholder="多个关键词以英文逗号隔开，如不填写，将自动使用标签作为关键词"
+                />
+              </a-form-item>
+              <a-form-item label="自定义描述：">
+                <a-input
+                  type="textarea"
+                  :autoSize="{ minRows: 5 }"
+                  v-model="selectedPost.metaDescription"
+                  placeholder="如不填写，会从文章中自动截取"
+                />
+              </a-form-item>
+            </a-form>
+          </div>
+        </div>
         <a-divider />
         <div :style="{ marginBottom: '16px' }">
           <h3 class="post-setting-drawer-title">元数据</h3>
           <a-form layout="vertical">
             <a-form-item
-              v-for="(postMeta, index) in selectedPostMetas"
+              v-for="(meta, index) in selectedMetas"
               :key="index"
-              :prop="'postMetas.' + index + '.value'"
+              :prop="'metas.' + index + '.value'"
             >
               <a-row :gutter="5">
                 <a-col :span="12">
-                  <a-input v-model="postMeta.key"><i slot="addonBefore">K</i></a-input>
+                  <a-input v-model="meta.key"><i slot="addonBefore">K</i></a-input>
                 </a-col>
                 <a-col :span="12">
-                  <a-input v-model="postMeta.value">
+                  <a-input v-model="meta.value">
                     <i slot="addonBefore">V</i>
                     <a
                       href="javascript:void(0);"
                       slot="addonAfter"
-                      @click.prevent="handleRemovePostMeta(postMeta)"
+                      @click.prevent="handleRemovePostMeta(meta)"
                     >
                       <a-icon type="close" />
                     </a>
@@ -227,13 +270,14 @@
         </div>
         <a-divider class="divider-transparent" />
       </div>
-    </a-skeleton>
-    <AttachmentSelectDrawer
-      v-model="thumbDrawerVisible"
-      @listenToSelect="handleSelectPostThumb"
-      :drawerWidth="460"
-    />
+    </a-drawer>
+
     <div class="bottom-control">
+      <a-button
+        style="marginRight: 8px"
+        type="dashed"
+        @click="()=>this.advancedVisible = true"
+      >高级</a-button>
       <a-button
         style="marginRight: 8px"
         @click="handleDraftClick"
@@ -279,6 +323,7 @@ export default {
     return {
       thumbDrawerVisible: false,
       categoryFormVisible: false,
+      advancedVisible: false,
       settingLoading: true,
       selectedPost: this.post,
       selectedTagIds: this.tagIds,
@@ -302,7 +347,7 @@ export default {
       type: Array,
       required: true
     },
-    postMetas: {
+    metas: {
       type: Array,
       required: true
     },
@@ -351,7 +396,7 @@ export default {
     selectedCategoryIds(val) {
       this.$emit('onRefreshCategoryIds', val)
     },
-    selectedPostMetas(val) {
+    selectedMetas(val) {
       this.$emit('onRefreshPostMetas', val)
     },
     visible: function(newValue, oldValue) {
@@ -364,10 +409,10 @@ export default {
     }
   },
   computed: {
-    selectedPostMetas() {
-      // 不能将selectedPostMetas直接定义在data里
-      // 还没有获取到值就渲染视图,可以直接使用postMetas
-      return this.postMetas
+    selectedMetas() {
+      // 不能将selectedMetas直接定义在data里
+      // 还没有获取到值就渲染视图,可以直接使用metas
+      return this.metas
     },
     pickerDefaultValue() {
       if (this.selectedPost.createTime) {
@@ -391,12 +436,12 @@ export default {
       })
     },
     loadPresetMetasField() {
-      if (this.postMetas.length <= 0) {
+      if (this.metas.length <= 0) {
         themeApi.getActivatedTheme().then(response => {
           const fields = response.data.data.postMetaField
           if (fields && fields.length > 0) {
             for (let i = 0, len = fields.length; i < len; i++) {
-              this.selectedPostMetas.push({
+              this.selectedMetas.push({
                 value: '',
                 key: fields[i]
               })
@@ -462,35 +507,46 @@ export default {
       // Set tag ids
       this.selectedPost.tagIds = this.selectedTagIds
       // Set post metas
-      this.selectedPost.postMetas = this.selectedPostMetas
+      this.selectedPost.metas = this.selectedMetas
       this.saving = true
       if (this.selectedPost.id) {
         // Update the post
-        postApi.update(this.selectedPost.id, this.selectedPost, autoSave).then(response => {
-          this.$log.debug('Updated post', response.data.data)
-          if (updateSuccess) {
-            updateSuccess()
+        postApi
+          .update(this.selectedPost.id, this.selectedPost, autoSave)
+          .then(response => {
+            this.$log.debug('Updated post', response.data.data)
+            if (updateSuccess) {
+              updateSuccess()
+              this.$emit('onSaved', true)
+              this.$router.push({ name: 'PostList' })
+            }
+          })
+          .finally(() => {
             this.saving = false
-            this.$emit('onSaved', true)
-            this.$router.push({ name: 'PostList' })
-          }
-        })
+          })
       } else {
         // Create the post
-        postApi.create(this.selectedPost, autoSave).then(response => {
-          this.$log.debug('Created post', response.data.data)
-          if (createSuccess) {
-            createSuccess()
+        postApi
+          .create(this.selectedPost, autoSave)
+          .then(response => {
+            this.$log.debug('Created post', response.data.data)
+            if (createSuccess) {
+              createSuccess()
+              this.$emit('onSaved', true)
+              this.$router.push({ name: 'PostList' })
+            }
+            this.selectedPost = response.data.data
+          })
+          .finally(() => {
             this.saving = false
-            this.$emit('onSaved', true)
-            this.$router.push({ name: 'PostList' })
-          }
-          this.selectedPost = response.data.data
-        })
+          })
       }
     },
     onClose() {
       this.$emit('close', false)
+    },
+    onAdvancedClose() {
+      this.advancedVisible = false
     },
     onPostDateChange(value, dateString) {
       this.selectedPost.createTime = value.valueOf()
@@ -499,13 +555,13 @@ export default {
       this.selectedPost.createTime = value.valueOf()
     },
     handleRemovePostMeta(item) {
-      var index = this.selectedPostMetas.indexOf(item)
+      var index = this.selectedMetas.indexOf(item)
       if (index !== -1) {
-        this.selectedPostMetas.splice(index, 1)
+        this.selectedMetas.splice(index, 1)
       }
     },
     handleInsertPostMeta() {
-      this.selectedPostMetas.push({
+      this.selectedMetas.push({
         value: '',
         key: ''
       })
